@@ -7,10 +7,11 @@ defmodule CodebattleWeb.Router do
   pipeline :browser do
     plug(:accepts, ["html"])
     plug(:fetch_session)
-    plug(CodebattleWeb.Plugs.AssignCurrentUser)
     plug(:fetch_live_flash)
+    plug(CodebattleWeb.Plugs.AssignCurrentUser)
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(PhoenixGon.Pipeline)
     plug(CodebattleWeb.Plugs.AssignGon)
     plug(CodebattleWeb.Plugs.Locale)
   end
@@ -40,17 +41,18 @@ defmodule CodebattleWeb.Router do
     pipe_through(:api)
 
     scope "/v1", V1, as: :v1 do
+      get("/games/completed", GameController, :completed)
       get("/:user_id/activity", ActivityController, :show)
       get("/game_activity", GameActivityController, :show)
       get("/playbook/:id", PlaybookController, :show)
       get("/user/:id/stats", UserController, :stats)
-      get("/user/:id/completed_games", UserController, :completed_games)
       get("/user/current", UserController, :current)
-      resources("/users", UserController, only: [:index, :show, :create])
-      resources("/session", SessionController, only: [:create], singleton: true)
       resources("/reset_password", ResetPasswordController, only: [:create], singleton: true)
+      resources("/session", SessionController, only: [:create], singleton: true)
       resources("/settings", SettingsController, only: [:show, :update], singleton: true)
-      post("/feedback", FeedBackController, :index)
+      resources("/tasks", TaskController, only: [:index, :show])
+      resources("/users", UserController, only: [:index, :show, :create])
+      resources("/feedback", FeedbackController, only: [:index, :create])
       post("/playbooks/approve", PlaybookController, :approve)
       post("/playbooks/reject", PlaybookController, :reject)
     end
@@ -59,15 +61,21 @@ defmodule CodebattleWeb.Router do
   scope "/", CodebattleWeb do
     # Use the default browser stack
     pipe_through(:browser)
-    get("/robots.txt", PageController, :robots)
-    get("/sitemap.xml", PageController, :sitemap)
-    get("/feedback/rss.xml", PageController, :feedback)
+    get("/robots.txt", RootController, :robots)
+    get("/sitemap.xml", RootController, :sitemap)
+    get("/feedback/rss.xml", RootController, :feedback)
 
-    get("/", PageController, :index)
+    get("/", RootController, :index)
+
     resources("/session", SessionController, singleton: true, only: [:delete, :new])
     get("/remind_password", SessionController, :remind_password)
     resources("/users", UserController, only: [:index, :show, :new])
-    resources("/tournaments", TournamentController, only: [:index, :show])
+
+    resources("/tournaments", TournamentController, only: [:index, :show]) do
+      get("/live", TournamentController, :live, as: :live)
+    end
+
+    resources("/react_tournaments", ReactTournamentController, only: [:index, :show])
 
     resources("/tasks", TaskController, only: [:index, :show, :new, :edit, :create, :update]) do
       patch("/activate", TaskController, :activate, as: :activate)
@@ -87,12 +95,16 @@ defmodule CodebattleWeb.Router do
 
     get("/settings", UserController, :edit, as: :user_setting)
     put("/settings", UserController, :update, as: :user_setting)
-    resources("/games", GameController, only: [:create, :show, :delete])
+
+    resources("/feedback", FeedbackController, only: [:index])
+
+    resources("/games", GameController, only: [:show, :delete]) do
+      get("/image", Game.ImageController, :show, as: :image)
+    end
 
     scope "/games" do
       post("/:id/join", GameController, :join)
-      post("/:id/check", GameController, :check)
-      get("/:id/image", Game.ImageController, :show, as: :game_image)
+      post("/training", GameController, :create_training)
     end
   end
 

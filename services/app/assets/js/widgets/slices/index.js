@@ -1,10 +1,14 @@
 import chat, { actions as chatActions } from './chat';
-import completedGames, { actions as completedGamesActions } from './completedGames';
+import completedGames, {
+  actions as completedGamesActions,
+} from './completedGames';
 import editor, { actions as editorActions } from './editor';
 import storeLoaded, { actions as storeLoadedActions } from './store';
 import usersInfo, { actions as usersInfoActions } from './usersInfo';
 import gameUI, { actions as gameUIActions } from './gameUI';
-import executionOutput, { actions as executionOutputActions } from './executionOutput';
+import executionOutput, {
+  actions as executionOutputActions,
+} from './executionOutput';
 import playbook, { actions as playbookActions } from './playbook';
 import game, { actions as gameActions } from './game';
 import lobby, { actions as lobbyActions } from './lobby';
@@ -12,6 +16,8 @@ import user, { actions as userActions } from './user';
 import userSettings, { actions as userSettingActions } from './userSettings';
 import leaderboard, { actions as leaderboardActions } from './leaderboard';
 import invites, { actions as invitesActions } from './invites';
+import stairwayGame, { actions as stairwayGameActions } from './stairway';
+import tournament, { actions as tournamentActions } from './tournament';
 
 const setError = error => ({
   type: 'ERROR',
@@ -35,6 +41,8 @@ export const actions = {
   ...leaderboardActions,
   ...invitesActions,
   ...userSettingActions,
+  ...stairwayGameActions,
+  ...tournamentActions,
 };
 
 export const redirectToNewGame = gameId => {
@@ -56,6 +64,8 @@ export default {
   leaderboard,
   invites,
   userSettings,
+  stairwayGame,
+  tournament,
 };
 
 export { makeEditorTextKey } from './editor';

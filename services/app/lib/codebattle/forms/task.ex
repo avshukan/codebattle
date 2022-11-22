@@ -20,7 +20,7 @@ defmodule Codebattle.TaskForm do
     |> Repo.insert()
   end
 
-  def update(task, params, user) do
+  def update(task, params, _) do
     new_params = params
 
     task
@@ -84,8 +84,8 @@ defmodule Codebattle.TaskForm do
   defp cast_asserts(changeset, params) do
     asserts =
       params
-      |> Map.get("asserts", "")
-      |> String.replace("\r", "")
+      |> Map.get("asserts", "[]")
+      |> Jason.decode!()
 
     put_change(changeset, :asserts, asserts)
   end

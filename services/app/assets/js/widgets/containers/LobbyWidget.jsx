@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import _ from 'lodash';
 import copy from 'copy-to-clipboard';
@@ -6,15 +6,20 @@ import moment from 'moment';
 
 import { useDispatch, useSelector } from 'react-redux';
 import Gon from 'gon';
+import classnames from 'classnames';
 import * as lobbyMiddlewares from '../middlewares/Lobby';
-import gameStatusCodes from '../config/gameStatusCodes';
+import gameStateCodes from '../config/gameStateCodes';
 import { actions } from '../slices';
 import * as selectors from '../selectors';
 import Loading from '../components/Loading';
 // import GamesHeatmap from '../components/GamesHeatmap';
 // import Card from '../components/Card';
 import UserInfo from './UserInfo';
-import { makeCreateGameBotUrl, getSignInGithubUrl } from '../utils/urlBuilders';
+import {
+  makeGameUrl,
+  getSignInGithubUrl,
+  getLobbyUrl,
+} from '../utils/urlBuilders';
 import i18n from '../../i18n';
 // import StartGamePanel from '../components/StartGamePanel';
 import CompletedGames from '../components/Game/CompletedGames';
@@ -25,12 +30,11 @@ import GameLevelBadge from '../components/GameLevelBadge';
 import LobbyChat from './LobbyChat';
 import levelRatio from '../config/levelRatio';
 import PlayerLoading from '../components/PlayerLoading';
+import hashLinkNames from '../config/hashLinkNames';
 
-const isActiveGame = game => [
-    gameStatusCodes.playing, gameStatusCodes.waitingOpponent,
-  ].includes(game.state);
+const isActiveGame = game => [gameStateCodes.playing, gameStateCodes.waitingOpponent].includes(game.state);
 
-const Players = ({ players, checkResults }) => {
+const Players = ({ players }) => {
   if (players.length === 1) {
     return (
       <td className="p-3 align-middle text-nowrap" colSpan={2}>
@@ -41,34 +45,50 @@ const Players = ({ players, checkResults }) => {
     );
   }
 
-  const getBarLength = (assertsCount, successCount) => (successCount / assertsCount) * 100;
+  const getPregressbarWidth = player => `${
+      (player.checkResult?.successCount / player.checkResult?.assertsCount)
+      * 100
+    }%`;
+  const getPregressbarClass = player => classnames('cb-check-result-bar', player.checkResult.status);
+
   return (
     <>
       <td className="p-3 align-middle text-nowrap cb-username-td text-truncate">
         <div className="d-flex flex-column position-relative">
-          <UserInfo user={players[0]} hideOnlineIndicator loading={checkResults[0].status === 'started'} />
-          <div className={`cb-check-result-bar ${checkResults[0].status}`}>
+          <UserInfo
+            user={players[0]}
+            hideOnlineIndicator
+            loading={players[0].checkResult.status === 'started'}
+          />
+          <div className={getPregressbarClass(players[0])}>
             <div
               className="cb-asserts-progress"
-              style={{ width: `${getBarLength(checkResults[0]?.assertsCount, checkResults[0]?.successCount)}%` }}
+              style={{ width: getPregressbarWidth(players[0]) }}
             />
           </div>
-          <PlayerLoading show={checkResults[0].status === 'started'} small />
+          <PlayerLoading
+            show={players[0].checkResult.status === 'started'}
+            small
+          />
         </div>
       </td>
       <td className="p-3 align-middle text-nowrap cb-username-td text-truncate">
         <div className="d-flex flex-column position-relative">
-          <UserInfo user={players[1]} hideOnlineIndicator loading={checkResults[1].status === 'started'} />
-          <div className={`cb-check-result-bar ${checkResults[1].status}`}>
+          <UserInfo
+            user={players[1]}
+            hideOnlineIndicator
+            loading={players[1].checkResult.status === 'started'}
+          />
+          <div className={getPregressbarClass(players[1])}>
             <div
               className="cb-asserts-progress"
-              style={{
-                width: `${getBarLength(checkResults[1]?.assertsCount, checkResults[1]?.successCount)}%`,
-                right: 0,
-              }}
+              style={{ width: getPregressbarWidth(players[1]), right: 0 }}
             />
           </div>
-          <PlayerLoading show={checkResults[1].status === 'started'} small />
+          <PlayerLoading
+            show={players[1].checkResult.status === 'started'}
+            small
+          />
         </div>
       </td>
     </>
@@ -100,18 +120,18 @@ const renderButton = (url, type) => {
 };
 
 const GameActionButton = ({ game }) => {
-  const gameUrl = makeCreateGameBotUrl(game.id);
-  const gameUrlJoin = makeCreateGameBotUrl(game.id, 'join');
+  const gameUrl = makeGameUrl(game.id);
+  const gameUrlJoin = makeGameUrl(game.id, 'join');
   const currentUser = Gon.getAsset('current_user');
   const gameState = game.state;
   const signInUrl = getSignInGithubUrl();
 
-  if (gameState === gameStatusCodes.playing) {
+  if (gameState === gameStateCodes.playing) {
     const type = isPlayer(currentUser, game) ? 'continue' : 'show';
     return renderButton(gameUrl, type);
   }
 
-  if (gameState === gameStatusCodes.waitingOpponent) {
+  if (gameState === gameStateCodes.waitingOpponent) {
     if (isPlayer(currentUser, game)) {
       return (
         <div className="d-flex justify-content-center">
@@ -141,7 +161,7 @@ const GameActionButton = ({ game }) => {
         </div>
       );
     }
-    if (currentUser.guest) {
+    if (currentUser.isGuest) {
       return (
         <button
           type="button"
@@ -234,6 +254,7 @@ const CompletedTournaments = ({ tournaments }) => {
         <thead className="">
           <tr>
             <th className="p-3 border-0">Title</th>
+            <th className="p-3 border-0">Type</th>
             <th className="p-3 border-0">Starts_at</th>
             <th className="p-3 border-0">Creator</th>
             <th className="p-3 border-0">Actions</th>
@@ -243,6 +264,7 @@ const CompletedTournaments = ({ tournaments }) => {
           {_.orderBy(tournaments, 'startsAt', 'desc').map(tournament => (
             <tr key={tournament.id}>
               <td className="p-3 align-middle">{tournament.name}</td>
+              <td className="p-3 align-middle">{tournament.type}</td>
               <td className="p-3 align-middle text-nowrap">
                 {moment
                   .utc(tournament.startsAt)
@@ -264,10 +286,14 @@ const CompletedTournaments = ({ tournaments }) => {
 };
 
 const ActiveGames = ({ games }) => {
+  if (!games) {
+    return null;
+  }
+
   const currentUser = Gon.getAsset('current_user');
 
   const filterGames = game => {
-    if (game.type === 'private') {
+    if (game.visibilityType === 'hidden') {
       return !!_.find(game.players, { id: currentUser.id });
     }
     return true;
@@ -318,20 +344,8 @@ const ActiveGames = ({ games }) => {
           </tr>
         </thead>
         <tbody>
-          {/*
-            TODO: handle game.checkResults
-
-            checkResults[0].status = "ok" | "failure" | "started" | "error"
-            checkResults[0].userId
-
-            checkResults <-> players Порядок элементов друг-другу соответствуют
-
-            checkResults[0].status = "failure"
-            checkResults[0].assertsCount
-            checkResults[0].successCount
-          */}
-          {sortedGames.map(game => (isActiveGame(game)
-            && (
+          {sortedGames.map(
+            game => isActiveGame(game) && (
             <tr key={game.id} className="text-dark game-item">
               <td className="p-3 align-middle text-nowrap">
                 <GameLevelBadge level={game.level} />
@@ -341,95 +355,138 @@ const ActiveGames = ({ games }) => {
                   alt={game.state}
                   title={game.state}
                   src={
-                    game.state === 'playing'
-                      ? '/assets/images/playing.svg'
-                      : '/assets/images/waitingOpponent.svg'
-                  }
+                        game.state === 'playing'
+                          ? '/assets/images/playing.svg'
+                          : '/assets/images/waitingOpponent.svg'
+                      }
                 />
               </td>
-              <Players gameId={game.id} players={game.players} checkResults={game.checkResults} />
+              <Players players={game.players} />
               <td className="p-3 align-middle text-center">
                 <GameActionButton game={game} />
               </td>
             </tr>
-            )
-          ))}
+              ),
+          )}
         </tbody>
       </table>
     </div>
   );
 };
 
+const tabLinkClassName = (...hash) => {
+  const url = new URL(window.location);
+  return classnames(
+    'nav-item nav-link text-uppercase rounded-0 text-black font-weight-bold p-3',
+    { active: hash.includes(url.hash) },
+  );
+};
+
+const tabContentClassName = hash => {
+  const url = new URL(window.location);
+  return classnames({
+    'tab-pane': true,
+    fade: true,
+    active: hash.includes(url.hash),
+    show: hash.includes(url.hash),
+  });
+};
+
+const tabLinkHandler = hash => () => {
+  window.location.hash = hash;
+};
+
 const GameContainers = ({
- activeGames, completedGames, liveTournaments, completedTournaments,
-}) => (
-  <div className="p-0">
-    <nav>
-      <div className="nav nav-tabs bg-gray" id="nav-tab" role="tablist">
-        <a
-          className="nav-item nav-link active text-uppercase rounded-0 text-black font-weight-bold p-3"
-          id="lobby-tab"
-          data-toggle="tab"
-          href="#lobby"
-          role="tab"
-          aria-controls="lobby"
-          aria-selected="true"
+  activeGames,
+  completedGames,
+  liveTournaments,
+  completedTournaments,
+}) => {
+  useEffect(() => {
+    if (!window.location.hash) {
+      tabLinkHandler(hashLinkNames.default)();
+      window.scrollTo({ top: 0 });
+    }
+  }, []);
+
+  return (
+    <div className="p-0">
+      <nav>
+        <div className="nav nav-tabs bg-gray" id="nav-tab" role="tablist">
+          <a
+            className={tabLinkClassName(
+              hashLinkNames.lobby,
+              hashLinkNames.default,
+            )}
+            id="lobby-tab"
+            data-toggle="tab"
+            href="#lobby"
+            role="tab"
+            aria-controls="lobby"
+            aria-selected="true"
+            onClick={tabLinkHandler(hashLinkNames.lobby)}
+          >
+            Lobby
+          </a>
+          <a
+            className={tabLinkClassName(hashLinkNames.tournaments)}
+            id="tournaments-tab"
+            data-toggle="tab"
+            href="#tournaments"
+            role="tab"
+            aria-controls="tournaments"
+            aria-selected="false"
+            onClick={tabLinkHandler(hashLinkNames.tournaments)}
+          >
+            Tournaments
+          </a>
+          <a
+            className={tabLinkClassName(hashLinkNames.completedGames)}
+            id="completedGames-tab"
+            data-toggle="tab"
+            href="#completedGames"
+            role="tab"
+            aria-controls="completedGames"
+            aria-selected="false"
+            onClick={tabLinkHandler(hashLinkNames.completedGames)}
+          >
+            Completed Games
+          </a>
+        </div>
+      </nav>
+      <div className="tab-content" id="nav-tabContent">
+        <div
+          className={tabContentClassName(
+            hashLinkNames.lobby,
+            hashLinkNames.default,
+          )}
+          id="lobby"
+          role="tabpanel"
+          aria-labelledby="lobby-tab"
         >
-          Lobby
-        </a>
-        <a
-          className="nav-item nav-link text-uppercase rounded-0 text-black font-weight-bold p-3"
-          id="tournaments-tab"
-          data-toggle="tab"
-          href="#tournaments"
-          role="tab"
-          aria-controls="tournaments"
-          aria-selected="false"
+          <ActiveGames games={activeGames} />
+        </div>
+        <div
+          className={tabContentClassName(hashLinkNames.tournaments)}
+          id="tournaments"
+          role="tabpanel"
+          aria-labelledby="tournaments-tab"
         >
-          Tournaments
-        </a>
-        <a
-          className="nav-item nav-link text-uppercase rounded-0 text-black font-weight-bold p-3"
-          id="completedGames-tab"
-          data-toggle="tab"
-          href="#completedGames"
-          role="tab"
-          aria-controls="completedGames"
-          aria-selected="false"
+          <LiveTournaments tournaments={liveTournaments} />
+          <CompletedTournaments tournaments={completedTournaments} />
+        </div>
+        <div
+          className={tabContentClassName(hashLinkNames.completedGames)}
+          id="completedGames"
+          role="tabpanel"
+          aria-labelledby="completedGames-tab"
         >
-          Completed Games
-        </a>
-      </div>
-    </nav>
-    <div className="tab-content" id="nav-tabContent">
-      <div
-        className="tab-pane fade show active"
-        id="lobby"
-        role="tabpanel"
-        aria-labelledby="lobby-tab"
-      >
-        <ActiveGames games={activeGames} />
-      </div>
-      <div
-        className="tab-pane fade"
-        id="tournaments"
-        role="tabpanel"
-        aria-labelledby="tournaments-tab"
-      >
-        <LiveTournaments tournaments={liveTournaments} />
-        <CompletedTournaments tournaments={completedTournaments} />
-      </div>
-      <div
-        className="tab-pane fade"
-        id="completedGames"
-        role="tabpanel"
-        aria-labelledby="completedGames-tab"
-      >
-        <CompletedGames games={completedGames} />
+          <CompletedGames games={completedGames} />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const renderModal = (show, handleCloseModal) => (
   <Modal show={show} onHide={handleCloseModal}>
@@ -454,15 +511,24 @@ const CreateGameButton = ({ handleClick }) => (
 
 const LobbyWidget = () => {
   const currentUser = Gon.getAsset('current_user');
+  const currentOpponent = Gon.getAsset('opponent');
+  const isModalShow = useSelector(selectors.isModalShow);
   const dispatch = useDispatch();
 
-  const [show, setShow] = useState(false);
-  const handleCloseModal = () => setShow(false);
-  const handleShowModal = () => setShow(true);
+  const handleShowModal = () => dispatch(actions.showCreateGameModal());
+  const handleCloseModal = () => dispatch(actions.closeCreateGameModal());
 
   useEffect(() => {
     dispatch(actions.setCurrentUser({ user: { ...currentUser } }));
     dispatch(lobbyMiddlewares.fetchState());
+    if (currentOpponent) {
+      window.history.replaceState({}, document.title, getLobbyUrl());
+      dispatch(
+        actions.showCreateGameInviteModal({
+          opponentInfo: { id: currentOpponent.id, name: currentOpponent.name },
+        }),
+      );
+    }
   }, [currentUser, dispatch]);
 
   const {
@@ -479,7 +545,7 @@ const LobbyWidget = () => {
 
   return (
     <div className="container-lg">
-      {renderModal(show, handleCloseModal)}
+      {renderModal(isModalShow, handleCloseModal)}
       <div className="row">
         <div className="col-lg-8 col-md-12 p-0 mb-2 pr-lg-2 pb-3">
           <GameContainers

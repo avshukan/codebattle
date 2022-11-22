@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import userTypes from '../config/userTypes';
-import GameStatusCodes from '../config/gameStatusCodes';
+import GameStateCodes from '../config/gameStateCodes';
 import editorModes from '../config/editorModes';
 import editorThemes from '../config/editorThemes';
 import i18n from '../../i18n';
@@ -56,7 +56,9 @@ export const editorDataSelector = (gameCurrent, playerId) => state => {
     ? editorTextsHistory[playerId]
     : editorTexts[makeEditorTextKey(playerId, meta.currentLangSlug)];
 
-  const currentLangSlug = gameCurrent.matches({ replayer: replayerMachineStates.on })
+  const currentLangSlug = gameCurrent.matches({
+    replayer: replayerMachineStates.on,
+  })
     ? meta.historyCurrentLangSlug
     : meta.currentLangSlug;
 
@@ -85,8 +87,8 @@ export const leftEditorSelector = gameCurrent => state => {
   const currentUserId = currentUserIdSelector(state);
   const player = _.get(gamePlayersSelector(state), currentUserId, false);
   const editorSelector = !!player && player.type === userTypes.secondPlayer
-    ? secondEditorSelector
-    : firstEditorSelector;
+      ? secondEditorSelector
+      : firstEditorSelector;
   return editorSelector(state, gameCurrent);
 };
 
@@ -94,8 +96,8 @@ export const rightEditorSelector = gameCurrent => state => {
   const currentUserId = currentUserIdSelector(state);
   const player = _.get(gamePlayersSelector(state), currentUserId, false);
   const editorSelector = !!player && player.type === userTypes.secondPlayer
-    ? firstEditorSelector
-    : secondEditorSelector;
+      ? firstEditorSelector
+      : secondEditorSelector;
   return editorSelector(state, gameCurrent);
 };
 
@@ -117,12 +119,12 @@ export const userLangSelector = state => userId => _.get(editorsMetaSelector(sta
 
 export const gameStatusTitleSelector = state => {
   const gameStatus = gameStatusSelector(state);
-  switch (gameStatus.status) {
-    case GameStatusCodes.waitingOpponent:
+  switch (gameStatus.state) {
+    case GameStateCodes.waitingOpponent:
       return i18n.t('%{state}', { state: i18n.t('Waiting for an opponent') });
-    case GameStatusCodes.playing:
+    case GameStateCodes.playing:
       return i18n.t('%{state}', { state: i18n.t('Playing') });
-    case GameStatusCodes.gameOver:
+    case GameStateCodes.gameOver:
       return i18n.t('%{state}', { state: gameStatus.msg });
     default:
       return '';
@@ -140,10 +142,9 @@ export const editorHeightSelector = (gameCurrent, userId) => state => {
   return _.get(editorData, 'editorHeight', defaultEditorHeight);
 };
 
-export const executionOutputSelector = (gameCurrent, userId) => state => (
-  gameCurrent.matches({ replayer: replayerMachineStates.on })
-  ? state.executionOutput.historyResults[userId]
-  : state.executionOutput.results[userId]);
+export const executionOutputSelector = (gameCurrent, userId) => state => (gameCurrent.matches({ replayer: replayerMachineStates.on })
+    ? state.executionOutput.historyResults[userId]
+    : state.executionOutput.results[userId]);
 
 export const firstExecutionOutputSelector = gameCurrent => state => {
   const playerId = firstPlayerSelector(state).id;
@@ -159,8 +160,8 @@ export const leftExecutionOutputSelector = gameCurrent => state => {
   const currentUserId = currentUserIdSelector(state);
   const player = _.get(gamePlayersSelector(state), currentUserId, false);
   const outputSelector = !!player && player.type === userTypes.secondPlayer
-    ? secondExecutionOutputSelector
-    : firstExecutionOutputSelector;
+      ? secondExecutionOutputSelector
+      : firstExecutionOutputSelector;
   return outputSelector(gameCurrent)(state);
 };
 
@@ -168,10 +169,12 @@ export const rightExecutionOutputSelector = gameCurrent => state => {
   const currentUserId = currentUserIdSelector(state);
   const player = _.get(gamePlayersSelector(state), currentUserId, false);
   const outputSelector = !!player && player.type === userTypes.secondPlayer
-    ? firstExecutionOutputSelector
-    : secondExecutionOutputSelector;
+      ? firstExecutionOutputSelector
+      : secondExecutionOutputSelector;
   return outputSelector(gameCurrent)(state);
 };
+
+export const tournamentSelector = state => state.tournament;
 
 export const usersInfoSelector = state => state.usersInfo;
 
@@ -201,7 +204,7 @@ export const editorsThemeSelector = currentUserId => state => {
 
 export const taskDescriptionLanguageselector = state => state.gameUI.taskDescriptionLanguage;
 
-export const playbookStatusSelector = state => state.playbook.status;
+export const playbookStatusSelector = state => state.playbook.state;
 
 export const playbookInitRecordsSelector = state => state.playbook.initRecords;
 
@@ -231,3 +234,7 @@ export const currentUserNameSelector = state => {
   }
   return state.user.users[currentUserId].name;
 };
+
+export const isModalShow = state => state.lobby.createGameModal.show;
+
+export const modalSelector = state => state.lobby.createGameModal;

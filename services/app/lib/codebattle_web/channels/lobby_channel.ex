@@ -2,70 +2,124 @@ defmodule CodebattleWeb.LobbyChannel do
   @moduledoc false
   use CodebattleWeb, :channel
 
-  alias Codebattle.GameProcess.FsmHelpers
-  alias Codebattle.GameProcess.Play
+  alias Codebattle.Bot
+  alias Codebattle.Game
   alias Codebattle.Tournament
   alias CodebattleWeb.Api.GameView
 
   def join("lobby", _payload, socket) do
-    user_id = socket.assigns.user_id
+    current_user = socket.assigns.current_user
 
-    # TODO: send user_if for extensions
-    case user_id do
-      "extension" ->
-        {:ok,
-         %{
-           active_games: GameView.render_active_games(Play.get_active_games(), user_id),
-           completed_games: GameView.render_completed_games(Play.get_completed_games())
-         }, socket}
+    user_active_games =
+      %{is_tournament: false}
+      |> Game.Context.get_active_games()
+      |> Enum.filter(&can_user_see_game?(&1, current_user))
 
-      _ ->
-        {:ok,
-         %{
-           active_games: GameView.render_active_games(Play.get_active_games(), user_id),
-           tournaments: Tournament.Context.list_live_and_finished(socket.assigns.current_user),
-           completed_games: GameView.render_completed_games(Play.get_completed_games())
-         }, socket}
-    end
+    Codebattle.PubSub.subscribe("games")
+    Codebattle.PubSub.subscribe("tournaments")
+
+    {:ok,
+     %{
+       active_games: user_active_games,
+       tournaments: Tournament.Context.list_live_and_finished(socket.assigns.current_user),
+       completed_games: GameView.render_completed_games(Game.Context.get_completed_games())
+     }, socket}
   end
 
   def handle_in("game:cancel", payload, socket) do
-    game_id = Map.get(payload, "gameId")
+    game_id = Map.get(payload, "game_id")
 
-    case Play.cancel_game(game_id, socket.assigns.current_user) do
-      :ok ->
-        CodebattleWeb.Notifications.remove_active_game(game_id)
-        {:noreply, socket}
-
-      {:error, reason} ->
-        {:error, %{reason: reason}, socket}
-    end
+    Game.Context.cancel_game(game_id, socket.assigns.current_user)
+    {:noreply, socket}
   end
 
   def handle_in("game:create", payload, socket) do
-    type =
-      case payload["type"] do
-        "withFriend" -> "private"
-        "withRandomPlayer" -> "public"
-        type -> type
-      end
-
     user = socket.assigns.current_user
 
-    game_params = %{
-      level: payload["level"],
-      type: type,
-      timeout_seconds: payload["timeout_seconds"],
-      user: user
-    }
+    game_params =
+      %{
+        level: payload["level"],
+        timeout_seconds: payload["timeout_seconds"]
+      }
+      |> add_players(payload, user)
+      |> maybe_add_task(payload, user)
 
-    case Play.start_game(game_params) do
-      {:ok, fsm} ->
-        game_id = FsmHelpers.get_game_id(fsm)
-        {:reply, {:ok, %{game_id: game_id}}, socket}
+    case Game.Context.create_game(game_params) do
+      {:ok, game} ->
+        {:reply, {:ok, %{game_id: game.id}}, socket}
 
       {:error, reason} ->
         {:reply, {:error, %{reason: reason}}, socket}
     end
   end
+
+  def handle_info(%{event: "game:finished", payload: payload}, socket) do
+    push(socket, "game:remove", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "game:terminated", payload: payload}, socket) do
+    push(socket, "game:remove", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "game:check_started", payload: payload}, socket) do
+    push(socket, "game:check_started", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "game:check_completed", payload: payload}, socket) do
+    push(socket, "game:check_completed", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "game:updated", payload: payload}, socket) do
+    current_user = socket.assigns.current_user
+
+    if can_user_see_game?(payload.game, current_user) do
+      push(socket, "game:upsert", payload)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "tournament:created", payload: payload}, socket) do
+    push(socket, "tournament:created", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "tournament:finished", payload: payload}, socket) do
+    push(socket, "tournament:finished", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(_, socket), do: {:noreply, socket}
+
+  defp can_user_see_game?(game, user) do
+    game.visibility_type == "public" || Game.Helpers.is_player?(game, user)
+  end
+
+  defp add_players(acc, %{"opponent_type" => "bot"}, user),
+    do: Map.put(acc, :players, [user, Bot.Context.build()])
+
+  defp add_players(acc, _payload, user), do: Map.put(acc, :players, [user])
+
+  defp maybe_add_task(params, %{"task_id" => nil, "task_tags" => []}, _user), do: params
+  defp maybe_add_task(params, %{"task_id" => nil, "task_tags" => nil}, _user), do: params
+
+  defp maybe_add_task(params, %{"task_id" => task_id}, user) when not is_nil(task_id) do
+    case Codebattle.Task.get_task_by_id_for_user(user, task_id) do
+      nil -> params
+      task -> Map.put(params, :task, task)
+    end
+  end
+
+  defp maybe_add_task(params, %{"task_tags" => task_tags}, user) when length(task_tags) > 0 do
+    case Codebattle.Task.get_task_by_tags_for_user(user, task_tags) do
+      nil -> params
+      task -> Map.put(params, :task, task)
+    end
+  end
+
+  defp maybe_add_task(params, _payload, _user), do: params
 end

@@ -5,9 +5,8 @@ defmodule Codebattle.Mixfile do
     [
       app: :codebattle,
       version: "0.1.0",
-      elixir: "~> 1.10",
+      elixir: "~> 1.12",
       elixirc_paths: elixirc_paths(Mix.env()),
-      compilers: [:phoenix, :gettext] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       preferred_cli_env: [
@@ -29,7 +28,7 @@ defmodule Codebattle.Mixfile do
   def application do
     [
       mod: {Codebattle.Application, []},
-      extra_applications: [:ssl, :mix, :runtime_tools, :logger, :os_mon]
+      extra_applications: [:runtime_tools, :logger, :os_mon]
     ]
   end
 
@@ -42,48 +41,39 @@ defmodule Codebattle.Mixfile do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.5.12"},
-      {:phoenix_ecto, "~> 4.4"},
-      {:phoenix_live_view, "~> 0.15"},
-      {:postgrex, "~> 0.15.6"},
-      {:phoenix_html, "~> 2.14"},
-      {:telemetry_metrics, "~> 0.5.0"},
-      {:telemetry_poller, "~> 0.5.0"},
-      {:gettext, "~> 0.18"},
       {:cowboy, "~> 2.8"},
-      {:plug_cowboy, "~> 2.4"},
-      {:phoenix_slime, "~> 0.13.1"},
-      {:slime, "~> 1.2"},
-      {:ueberauth, "~> 0.6.3"},
-      {:ueberauth_github, "~> 0.8"},
-      {:gproc, "~> 0.8"},
-      {:fsm, "~> 0.3"},
-      {:phoenix_gon, "~> 0.4.0"},
-      {:text_delta, "~> 1.4.0"},
-      {:yaml_elixir, "~> 2.4"},
-      {:temp, "~> 0.4"},
-      {:atomic_map, "~> 0.8"},
-      {:envy, "~> 1.1.1"},
-      {:paginator, "~> 1.0.1"},
-      {:scrivener_ecto, "~> 2.5"},
-      {:ecto_psql_extras, "~> 0.2"},
-      {:phoenix_client, "~> 0.11"},
-      {:websocket_client, "~> 1.3"},
-      {:jason, "~> 1.2"},
-      {:websockex, "~> 0.4.2"},
-      {:socket, "~> 0.3"},
-      {:timex, "~> 3.6"},
-      {:httpoison, "~> 1.5.0"},
-      {:poison, "~> 3.0"},
-      {:phoenix_meta_tags, "~> 0.1.8"},
-      {:gen_state_machine, "~> 2.1"},
-      {:html_to_image, git: "https://github.com/koss-lebedev/html_to_image"},
-      {:ueberauth_discord, "~> 0.5.2"},
-      {:sentry, "~> 8.0"},
       {:earmark, "~> 1.4"},
+      {:ecto, "~> 3.7"},
+      {:ecto_psql_extras, "~> 0.2"},
+      {:envy, "~> 1.1.1"},
+      {:gettext, "~> 0.18"},
+      {:html_to_image, github: "koss-lebedev/html_to_image"},
+      {:httpoison, "~> 1.8"},
+      {:jason, "~> 1.2"},
+      {:phoenix, "~> 1.6.7"},
+      {:phoenix_client, github: "vtm9/phoenix_client"},
+      {:phoenix_ecto, "~> 4.4"},
+      {:phoenix_gon, "~> 0.4", github: "bonfire-networks/phoenix_gon"},
+      {:phoenix_html, "~> 3.2"},
+      {:phoenix_live_dashboard, "~> 0.7.1"},
+      {:phoenix_live_view, "~> 0.17"},
+      {:phoenix_meta_tags, "~> 0.1.8"},
+      {:plug_cowboy, "~> 2.4"},
+      {:postgrex, ">= 0.0.0"},
+      {:sentry, "~> 8.0"},
+      {:telemetry_metrics, "~> 0.6"},
+      {:telemetry_poller, "~> 1.0"},
+      {:temp, "~> 0.4"},
+      {:text_delta, "~> 1.4.0"},
+      {:timex, "~> 3.6"},
+      {:typed_struct, "~> 0.3"},
+      {:ueberauth, "~> 0.7"},
+      {:ueberauth_discord, "~> 0.7"},
+      {:ueberauth_github, "~> 0.8.1"},
+      {:yaml_elixir, "~> 2.4"},
 
       # dev_and_test
-      {:credo, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
 
       # dev
       {:phoenix_live_reload, "~> 1.2", only: :dev},

@@ -7,29 +7,36 @@ const initialState = {
   presenceList: [],
   loaded: false,
   newGame: { timeoutSeconds: null },
+  createGameModal: {
+    show: false,
+    gameOptions: {},
+    opponentInfo: null,
+  },
 };
 
 const lobby = createSlice({
   name: 'lobby',
   initialState,
   reducers: {
-    initGameList: (state, { payload: { activeGames, completedGames, tournaments } }) => ({
+    initGameList: (
+      state,
+      { payload: { activeGames, completedGames, tournaments } },
+    ) => ({
       ...state,
       activeGames,
       completedGames,
-      liveTournaments: tournaments.filter(x => (x.isLive)),
-      completedTournaments: tournaments.filter(x => (!x.isLive)),
+      liveTournaments: tournaments.filter(x => x.isLive),
+      completedTournaments: tournaments.filter(x => !x.isLive),
       loaded: true,
     }),
     updateCheckResult: (state, { payload }) => {
       state.activeGames = state.activeGames.map(game => {
-        if (game.id === payload.id) {
-          const playerIndex = game.players.findIndex(player => player.id === payload.userId);
-          const newCheckResults = game.checkResults.map(
-            (result, index) => (index === playerIndex ? { ...result, ...payload.checkResult } : result),
-          );
+        if (game.id === payload.gameId) {
+          const newPlayers = game.players.map(player => (player.id === payload.userId
+              ? { ...player, checkResult: payload.checkResult }
+              : player));
 
-          return { ...game, checkResults: newCheckResults };
+          return { ...game, players: newPlayers };
         }
 
         return game;
@@ -38,8 +45,8 @@ const lobby = createSlice({
     syncPresenceList: (state, { payload }) => {
       state.presenceList = payload;
     },
-    removeGameLobby: (state, { payload: { id } }) => {
-      state.activeGames = _.reject(state.activeGames, { id });
+    removeGameLobby: (state, { payload: { gameId } }) => {
+      state.activeGames = _.reject(state.activeGames, { id: gameId });
     },
     upsertGameLobby: (state, { payload: { game } }) => {
       const gameToUpdate = _.find(state.activeGames, { id: game.id });
@@ -55,6 +62,21 @@ const lobby = createSlice({
     finishGame: (state, { payload: { game } }) => {
       state.activeGames = _.reject(state.activeGames, { id: game.id });
       state.completedGames = [game, ...state.completedGames];
+    },
+    showCreateGameModal: state => {
+      state.createGameModal.show = true;
+      state.createGameModal.gameOptions = {};
+      state.createGameModal.opponentInfo = null;
+    },
+    closeCreateGameModal: state => {
+      state.createGameModal.show = false;
+      state.createGameModal.gameOptions = {};
+      state.createGameModal.opponentInfo = null;
+    },
+    showCreateGameInviteModal: (state, { payload: { opponentInfo } }) => {
+      state.createGameModal.show = true;
+      state.createGameModal.gameOptions = { type: 'invite' };
+      state.createGameModal.opponentInfo = opponentInfo;
     },
   },
 });

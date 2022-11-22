@@ -1,7 +1,4 @@
 test:
-	clj -m test_clojure
-
-test-example:
-	clj -m checker_example
+	clojure  -M:run-solution
 
 .PHONY: test

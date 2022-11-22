@@ -5,7 +5,9 @@ defmodule CodebattleWeb.TournamentView do
 
   import Codebattle.Tournament.Helpers
 
-  def render_datetime(nil), do: "none"
+  def csrf_token() do
+    Plug.CSRFProtection.get_csrf_token()
+  end
 
   def render_time(ms) do
     ms
@@ -13,6 +15,8 @@ defmodule CodebattleWeb.TournamentView do
     |> Timex.Duration.to_time!()
     |> Timex.format!("%H:%M:%S:%L", :strftime)
   end
+
+  def render_datetime(nil), do: "none"
 
   def render_datetime(utc_datetime) do
     utc_datetime
@@ -24,15 +28,15 @@ defmodule CodebattleWeb.TournamentView do
     is_participant = Enum.map(match.players, & &1.id) |> Enum.any?(&(&1 == id))
 
     case {match.state, is_participant} do
-      {"waiting", true} -> {"Wait", "bg-warning"}
-      {"active", true} -> {"Join", "bg-warning"}
+      {"pending", true} -> {"Pending", "bg-warning"}
+      {"playing", true} -> {"Join", "bg-warning"}
       {_, true} -> {"Show", "x-bg-gray"}
       _ -> {"Show", ""}
     end
   end
 
   def get_icon_class(player) do
-    case Map.get(player, :game_result) do
+    case Map.get(player, :result) do
       "waiting" -> nil
       "won" -> "fa fa-trophy"
       "lost" -> "lost"
